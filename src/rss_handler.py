@@ -1,7 +1,7 @@
 import feedparser
 import logging
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from src.config import RSS_SOURCES
 
 logger = logging.getLogger(__name__)
@@ -133,3 +133,23 @@ def extract_article_data(entry: Dict) -> Dict[str, str]:
     
     logger.info(f"Extracted article data: {article_data['title']}")
     return article_data
+
+
+def get_sources_in_priority_order() -> List[Dict[str, str]]:
+    """
+    Get RSS sources in priority order, starting with daily source.
+    
+    Returns:
+        List of RSS sources in priority order
+    """
+    # Start with the daily source
+    daily_source = get_daily_source()
+    sources = [daily_source]
+    
+    # Add all other sources
+    for source in RSS_SOURCES:
+        if source['name'] != daily_source['name']:
+            sources.append(source)
+    
+    logger.info(f"RSS source priority order: {[s['name'] for s in sources]}")
+    return sources
