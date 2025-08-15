@@ -70,6 +70,9 @@ def extract_content(html: str) -> Optional[str]:
         if not content:
             logger.info("Primary selector failed, trying fallback selectors")
             fallback_selectors = [
+                ".l-content",  # CISA specific
+                ".node-content",  # CISA specific
+                ".field-name-body",  # CISA specific
                 "article",
                 "main",
                 "[role='main']",
