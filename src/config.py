@@ -52,7 +52,8 @@ RETRY_DELAY = 2  # seconds
 NOTION_API_TOKEN = os.environ.get("NOTION_API_TOKEN")
 NOTION_DATABASE_ID = os.environ.get("NOTION_DATABASE_ID", "1e7f1554-e9cf-8020-bce6-eb3bc8cc5828")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
+DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
+DISCORD_CHANNEL_ID = os.environ.get("DISCORD_CHANNEL_ID", "1332616096825606164")
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
 
 # OpenAI configuration

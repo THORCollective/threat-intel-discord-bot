@@ -24,7 +24,8 @@ jobs:
       NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
       NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+      DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
       DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
     
     steps:
@@ -66,10 +67,20 @@ jobs:
           import json
           import requests
           
-          webhook_url = os.environ.get('DISCORD_WEBHOOK_URL')
-          if webhook_url:
-              payload = {
-                  'content': '⚠️ **GitHub Actions Alert** ⚠️\n\nThe Daily Threat Hunt workflow failed!\n\n**Workflow:** ${{ github.workflow }}\n**Run ID:** ${{ github.run_id }}\n**Error:** Check GitHub Actions logs for details.\n\n[View Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
-              }
-              requests.post(webhook_url, json=payload)
+          import discord
+          import asyncio
+          
+          bot_token = os.environ.get('DISCORD_BOT_TOKEN')
+          channel_id = os.environ.get('DISCORD_CHANNEL_ID')
+          
+          if bot_token and channel_id:
+              async def send_error():
+                  client = discord.Client(intents=discord.Intents.default())
+                  await client.login(bot_token)
+                  channel = client.get_channel(int(channel_id))
+                  if channel:
+                      await channel.send('⚠️ **GitHub Actions Alert** ⚠️\n\nThe Daily Threat Hunt workflow failed!\n\n**Workflow:** ${{ github.workflow }}\n**Run ID:** ${{ github.run_id }}\n**Error:** Check GitHub Actions logs for details.\n\n[View Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})')
+                  await client.close()
+              
+              asyncio.run(send_error())
           "

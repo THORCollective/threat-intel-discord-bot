@@ -1,19 +1,27 @@
-import requests
+import discord
+import asyncio
 import logging
-import json
 from typing import Optional
-from src.config import DISCORD_WEBHOOK_URL, DRY_RUN, MAX_RETRIES, RETRY_DELAY
-import time
+from src.config import DISCORD_BOT_TOKEN, DISCORD_CHANNEL_ID, DRY_RUN
 
 logger = logging.getLogger(__name__)
 
 
 class DiscordPoster:
     def __init__(self):
-        """Initialize Discord poster."""
-        self.webhook_url = DISCORD_WEBHOOK_URL
-        if not self.webhook_url:
-            logger.warning("Discord webhook URL not configured")
+        """Initialize Discord bot client."""
+        self.bot_token = DISCORD_BOT_TOKEN
+        self.channel_id = DISCORD_CHANNEL_ID
+        
+        if not self.bot_token:
+            logger.warning("Discord bot token not configured")
+            self.client = None
+        else:
+            # Configure intents for the bot
+            intents = discord.Intents.default()
+            intents.message_content = True
+            self.client = discord.Client(intents=intents)
+            logger.info("Discord client initialized")
     
     def format_discord_message(self, analysis: str, title: str, url: str) -> str:
         """
@@ -59,7 +67,7 @@ Every day, we dig into a new threat report and break it down with the PEAK Frame
     
     def post_to_discord(self, analysis: str, title: str, url: str) -> bool:
         """
-        Send formatted message to Discord webhook.
+        Send formatted message to Discord using bot API.
         
         Args:
             analysis: AI analysis text
@@ -69,8 +77,8 @@ Every day, we dig into a new threat report and break it down with the PEAK Frame
         Returns:
             True if posted successfully, False otherwise
         """
-        if not self.webhook_url or DRY_RUN:
-            logger.info(f"Skipping Discord post (dry_run={DRY_RUN}, webhook={bool(self.webhook_url)})")
+        if not self.client or DRY_RUN:
+            logger.info(f"Skipping Discord post (dry_run={DRY_RUN}, client={bool(self.client)})")
             if DRY_RUN:
                 message = self.format_discord_message(analysis, title, url)
                 logger.info(f"[DRY RUN] Would post to Discord:\n{message[:500]}...")
@@ -79,49 +87,63 @@ Every day, we dig into a new threat report and break it down with the PEAK Frame
         # Format message
         message = self.format_discord_message(analysis, title, url)
         
-        # Prepare payload
-        payload = {
-            "content": message,
-            "username": "Threat Intel Bot",
-            "avatar_url": "https://i.imgur.com/4M34hi2.png"  # Optional: bot avatar
-        }
+        # Run the async posting function
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(self._post_message_async(message))
+            loop.close()
+            return result
+        except Exception as e:
+            logger.error(f"Error running async Discord post: {e}")
+            return False
+    
+    async def _post_message_async(self, message: str) -> bool:
+        """
+        Async function to post message to Discord.
         
-        # Attempt to post with retries
-        for attempt in range(MAX_RETRIES):
-            try:
-                logger.info(f"Posting to Discord (attempt {attempt + 1}/{MAX_RETRIES})")
-                
-                response = requests.post(
-                    self.webhook_url,
-                    json=payload,
-                    headers={"Content-Type": "application/json"},
-                    timeout=30
-                )
-                
-                if response.status_code == 204:
-                    logger.info("Successfully posted to Discord")
-                    return True
-                elif response.status_code == 429:
-                    # Rate limited
-                    retry_after = response.json().get('retry_after', RETRY_DELAY)
-                    logger.warning(f"Rate limited, retrying after {retry_after} seconds")
-                    time.sleep(retry_after)
-                else:
-                    logger.error(f"Discord API returned status code: {response.status_code}")
-                    logger.error(f"Response: {response.text}")
-                    
-            except Exception as e:
-                logger.error(f"Error posting to Discord (attempt {attempt + 1}): {e}")
+        Args:
+            message: Formatted message to post
             
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(RETRY_DELAY)
-        
-        logger.error(f"Failed to post to Discord after {MAX_RETRIES} attempts")
-        return False
+        Returns:
+            True if posted successfully, False otherwise
+        """
+        try:
+            logger.info("Connecting to Discord...")
+            await self.client.login(self.bot_token)
+            
+            # Get the channel
+            channel = self.client.get_channel(int(self.channel_id))
+            if not channel:
+                logger.error(f"Could not find channel with ID: {self.channel_id}")
+                return False
+            
+            logger.info(f"Posting message to channel: {channel.name}")
+            await channel.send(message)
+            logger.info("Successfully posted to Discord")
+            
+            await self.client.close()
+            return True
+            
+        except discord.LoginFailure:
+            logger.error("Discord login failed - check bot token")
+            return False
+        except discord.Forbidden:
+            logger.error("Bot doesn't have permission to send messages in this channel")
+            return False
+        except discord.HTTPException as e:
+            logger.error(f"Discord HTTP error: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error posting to Discord: {e}")
+            return False
+        finally:
+            if not self.client.is_closed():
+                await self.client.close()
     
     def send_error_notification(self, error_msg: str) -> bool:
         """
-        Send error notification to Discord.
+        Send error notification to Discord using bot API.
         
         Args:
             error_msg: Error message to send
@@ -129,32 +151,18 @@ Every day, we dig into a new threat report and break it down with the PEAK Frame
         Returns:
             True if sent successfully, False otherwise
         """
-        if not self.webhook_url or DRY_RUN:
-            logger.info(f"Skipping error notification (dry_run={DRY_RUN}, webhook={bool(self.webhook_url)})")
+        if not self.client or DRY_RUN:
+            logger.info(f"Skipping error notification (dry_run={DRY_RUN}, client={bool(self.client)})")
             return True
         
-        payload = {
-            "content": f"⚠️ **Threat Intel Bot Error** ⚠️\n\n{error_msg}",
-            "username": "Threat Intel Bot",
-            "avatar_url": "https://i.imgur.com/4M34hi2.png"
-        }
+        error_message = f"⚠️ **Threat Intel Bot Error** ⚠️\n\n{error_msg}"
         
         try:
-            logger.info("Sending error notification to Discord")
-            response = requests.post(
-                self.webhook_url,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=30
-            )
-            
-            if response.status_code == 204:
-                logger.info("Error notification sent successfully")
-                return True
-            else:
-                logger.error(f"Failed to send error notification: {response.status_code}")
-                return False
-                
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(self._post_message_async(error_message))
+            loop.close()
+            return result
         except Exception as e:
             logger.error(f"Error sending error notification: {e}")
             return False

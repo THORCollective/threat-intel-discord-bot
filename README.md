@@ -54,8 +54,13 @@ Add these secrets to your GitHub repository:
 3. **OPENAI_API_KEY**: Your OpenAI API key
    - Get from: https://platform.openai.com/api-keys
 
-4. **DISCORD_WEBHOOK_URL**: Your Discord webhook URL
-   - Create in Discord: Server Settings → Integrations → Webhooks
+4. **DISCORD_BOT_TOKEN**: Your Discord bot token
+   - Create bot at: https://discord.com/developers/applications
+   - Generate token in Bot section
+
+5. **DISCORD_CHANNEL_ID**: Your Discord channel ID (optional)
+   - Right-click channel → Copy Channel ID
+   - Default: 1332616096825606164
 
 ### Notion Database Setup
 
@@ -84,7 +89,8 @@ pip install -r requirements.txt
 export NOTION_API_TOKEN="your_token"
 export NOTION_DATABASE_ID="your_database_id"
 export OPENAI_API_KEY="your_api_key"
-export DISCORD_WEBHOOK_URL="your_webhook_url"
+export DISCORD_BOT_TOKEN="your_bot_token"
+export DISCORD_CHANNEL_ID="1332616096825606164"
 ```
 
 4. Run in dry-run mode:
@@ -184,8 +190,9 @@ schedule:
 - Ensure property names match
 
 ### Discord Not Posting
-- Verify webhook URL is valid
-- Check message formatting
+- Verify bot token is valid and bot is in server
+- Check bot has permission to send messages in target channel
+- Ensure channel ID is correct
 - Review Discord rate limits
 
 ### OpenAI Errors
