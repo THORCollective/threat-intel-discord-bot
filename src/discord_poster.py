@@ -113,7 +113,17 @@ Every day, we dig into a new threat report and break it down with the PEAK Frame
             await self.client.login(self.bot_token)
             
             # Get the channel
-            channel = self.client.get_channel(int(self.channel_id))
+            if not self.channel_id:
+                logger.error("Discord channel ID not configured")
+                return False
+                
+            try:
+                channel_id_int = int(self.channel_id)
+            except ValueError:
+                logger.error(f"Invalid channel ID format: {self.channel_id}")
+                return False
+                
+            channel = self.client.get_channel(channel_id_int)
             if not channel:
                 logger.error(f"Could not find channel with ID: {self.channel_id}")
                 return False

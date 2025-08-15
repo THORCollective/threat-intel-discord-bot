@@ -25,7 +25,7 @@ jobs:
       NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-      DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
+      DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID || '1332616096825606164' }}
       DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
     
     steps:
@@ -71,7 +71,7 @@ jobs:
           import asyncio
           
           bot_token = os.environ.get('DISCORD_BOT_TOKEN')
-          channel_id = os.environ.get('DISCORD_CHANNEL_ID')
+          channel_id = os.environ.get('DISCORD_CHANNEL_ID', '1332616096825606164')
           
           if bot_token and channel_id:
               async def send_error():
