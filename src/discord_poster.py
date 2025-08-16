@@ -109,10 +109,7 @@ Every day, we dig into a new threat report and break it down with the PEAK Frame
             True if posted successfully, False otherwise
         """
         try:
-            logger.info("Connecting to Discord...")
-            await self.client.login(self.bot_token)
-            
-            # Get the channel
+            # Get the channel ID
             if not self.channel_id:
                 logger.error("Discord channel ID not configured")
                 return False
@@ -122,18 +119,41 @@ Every day, we dig into a new threat report and break it down with the PEAK Frame
             except ValueError:
                 logger.error(f"Invalid channel ID format: {self.channel_id}")
                 return False
+            
+            # Create event for when bot is ready
+            ready_event = asyncio.Event()
+            message_sent = False
+            
+            @self.client.event
+            async def on_ready():
+                nonlocal message_sent
+                logger.info(f"Bot connected as: {self.client.user}")
                 
-            channel = self.client.get_channel(channel_id_int)
-            if not channel:
-                logger.error(f"Could not find channel with ID: {self.channel_id}")
-                return False
+                # Get the channel
+                channel = self.client.get_channel(channel_id_int)
+                if not channel:
+                    logger.error(f"Could not find channel with ID: {self.channel_id}")
+                    # List available channels for debugging
+                    logger.info("Available channels:")
+                    for guild in self.client.guilds:
+                        for ch in guild.text_channels:
+                            logger.info(f"  - {ch.name} (ID: {ch.id})")
+                else:
+                    logger.info(f"Found channel: {channel.name} in {channel.guild.name}")
+                    await channel.send(message)
+                    logger.info("Successfully posted to Discord")
+                    message_sent = True
+                
+                ready_event.set()
+                await self.client.close()
             
-            logger.info(f"Posting message to channel: {channel.name}")
-            await channel.send(message)
-            logger.info("Successfully posted to Discord")
+            # Start the client
+            logger.info("Connecting to Discord...")
+            await self.client.start(self.bot_token)
             
-            await self.client.close()
-            return True
+            # Wait for ready event
+            await ready_event.wait()
+            return message_sent
             
         except discord.LoginFailure:
             logger.error("Discord login failed - check bot token")
